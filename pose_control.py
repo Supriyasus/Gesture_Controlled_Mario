@@ -11,142 +11,103 @@ class PoseControl:
 
         self.hands = mp.solutions.hands.Hands(
             max_num_hands=1,
-            min_detection_confidence=0.7, # Keep these robust
+            min_detection_confidence=0.7,
             min_tracking_confidence=0.6
         )
         self.drawing = mp.solutions.drawing_utils
         self.prev_action = "idle"
         self.last_frame = None
-        self.mode = "menu" # Initial mode is "menu"
+        self.mode = "menu"
 
-        # TUNE THESE THRESHOLDS CAREFULLY BASED ON YOUR CAMERA AND HANDS
-        # Experiment with values like 0.5 to 0.8
-        self.extension_threshold_factor = 0.65 # Main threshold for finger extension
+        # 🔧 Tuned for better reliability
+        self.extension_threshold_factor = 0.75
+        self.thumb_extension_factor_multiplier = 0.9
+
+    def get_distance(self, p1, p2):
+        return np.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2)
 
     def get_action(self):
         ret, frame = self.cap.read()
         if not ret:
-            # print("Warning: Could not read frame from webcam.")
-            return self.prev_action # Return previous action if frame not available
+            return self.prev_action
 
-        frame = cv2.flip(frame, 1) # Flip for mirror effect
+        frame = cv2.flip(frame, 1)
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        self.last_frame = frame.copy() # Store for overlay
+        self.last_frame = frame.copy()
 
         hand_result = self.hands.process(rgb)
+        current_action = "idle"
 
-        current_action = "idle" # Default to idle for the current frame
+        index_ext = middle_ext = ring_ext = pinky_ext = thumb_ext = False
 
         if hand_result.multi_hand_landmarks:
             hand_landmarks = hand_result.multi_hand_landmarks[0]
-            # Draw landmarks on the frame for visualization
             self.drawing.draw_landmarks(self.last_frame, hand_landmarks, mp.solutions.hands.HAND_CONNECTIONS)
-
             landmarks = hand_landmarks.landmark
 
-            def get_distance(a, b):
-                ax, ay = landmarks[a].x, landmarks[a].y
-                bx, by = landmarks[b].x, landmarks[b].y
-                return np.sqrt((ax - bx) ** 2 + (ay - by) ** 2)
+            base_size = self.get_distance(
+                landmarks[mp.solutions.hands.HandLandmark.WRIST],
+                landmarks[mp.solutions.hands.HandLandmark.PINKY_MCP]
+            )
+            base_size = base_size if base_size != 0 else 0.001
 
-            # Use wrist to pinky MCP as a more stable base size for normalization
-            base_size = get_distance(mp.solutions.hands.HandLandmark.WRIST,
-                                     mp.solutions.hands.HandLandmark.PINKY_MCP)
-            if base_size == 0: # Prevent division by zero if landmarks overlap
-                base_size = 0.001 # A small epsilon value
+            def is_finger_extended(tip, mcp):
+                return (self.get_distance(landmarks[tip], landmarks[mcp]) / base_size) > self.extension_threshold_factor
 
-            # Function to check if a finger is extended
-            def is_extended(tip, mcp):
-                return (get_distance(tip, mcp) / base_size) > self.extension_threshold_factor
-            
-            # Special check for thumb, can have a slightly different threshold or logic
-            def is_thumb_extended(thumb_tip, thumb_cmc):
-                # Thumb extension distance relative to base_size
-                thumb_dist_norm = get_distance(thumb_tip, thumb_cmc) / base_size
-                
-                # You might need to adjust this factor for the thumb specifically
-                # Thumbs often have a slightly different extension profile
-                thumb_extension_factor = self.extension_threshold_factor * 0.9 # Slightly lower for thumb
-                return thumb_dist_norm > thumb_extension_factor
+            def is_thumb_extended():
+                tip = landmarks[mp.solutions.hands.HandLandmark.THUMB_TIP]
+                ip = landmarks[mp.solutions.hands.HandLandmark.THUMB_IP]
+                mcp = landmarks[mp.solutions.hands.HandLandmark.THUMB_MCP]
 
+                return tip.x > ip.x > mcp.x if hand_landmarks.landmark[mp.solutions.hands.HandLandmark.WRIST].x < tip.x else tip.x < ip.x < mcp.x
 
-            index_ext = is_extended(mp.solutions.hands.HandLandmark.INDEX_FINGER_TIP,
-                                    mp.solutions.hands.HandLandmark.INDEX_FINGER_MCP)
-            middle_ext = is_extended(mp.solutions.hands.HandLandmark.MIDDLE_FINGER_TIP,
-                                     mp.solutions.hands.HandLandmark.MIDDLE_FINGER_MCP)
-            ring_ext = is_extended(mp.solutions.hands.HandLandmark.RING_FINGER_TIP,
-                                   mp.solutions.hands.HandLandmark.RING_FINGER_MCP)
-            pinky_ext = is_extended(mp.solutions.hands.HandLandmark.PINKY_TIP,
-                                    mp.solutions.hands.HandLandmark.PINKY_MCP)
-            
-            # Using the specific thumb extension function
-            thumb_ext = is_thumb_extended(mp.solutions.hands.HandLandmark.THUMB_TIP,
-                                          mp.solutions.hands.HandLandmark.THUMB_CMC)
+            index_ext = is_finger_extended(mp.solutions.hands.HandLandmark.INDEX_FINGER_TIP, mp.solutions.hands.HandLandmark.INDEX_FINGER_MCP)
+            middle_ext = is_finger_extended(mp.solutions.hands.HandLandmark.MIDDLE_FINGER_TIP, mp.solutions.hands.HandLandmark.MIDDLE_FINGER_MCP)
+            ring_ext = is_finger_extended(mp.solutions.hands.HandLandmark.RING_FINGER_TIP, mp.solutions.hands.HandLandmark.RING_FINGER_MCP)
+            pinky_ext = is_finger_extended(mp.solutions.hands.HandLandmark.PINKY_TIP, mp.solutions.hands.HandLandmark.PINKY_MCP)
+            thumb_ext = is_thumb_extended()
 
-            # --- DEBUGGING PRINTS (Uncomment to see values in console) ---
-            # print(f"Base Size: {base_size:.4f}")
-            # print(f"Index Norm Dist: {get_distance(mp.solutions.hands.HandLandmark.INDEX_FINGER_TIP, mp.solutions.hands.HandLandmark.INDEX_FINGER_MCP) / base_size:.4f}")
-            # print(f"Middle Norm Dist: {get_distance(mp.solutions.hands.HandLandmark.MIDDLE_FINGER_TIP, mp.solutions.hands.HandLandmark.MIDDLE_FINGER_MCP) / base_size:.4f}")
-            # print(f"Ring Norm Dist: {get_distance(mp.solutions.hands.HandLandmark.RING_FINGER_TIP, mp.solutions.hands.HandLandmark.RING_FINGER_MCP) / base_size:.4f}")
-            # print(f"Pinky Norm Dist: {get_distance(mp.solutions.hands.HandLandmark.PINKY_TIP, mp.solutions.hands.HandLandmark.PINKY_MCP) / base_size:.4f}")
-            # print(f"Thumb Norm Dist: {get_distance(mp.solutions.hands.HandLandmark.THUMB_TIP, mp.solutions.hands.HandLandmark.THUMB_CMC) / base_size:.4f}")
-            # print(f"Extended: I:{index_ext} M:{middle_ext} R:{ring_ext} P:{pinky_ext} T:{thumb_ext}")
-            # -------------------------------------------------------------
-
-            # === Gesture Detection Logic (Order Matters: Most Specific to Least Specific) ===
-
+            # 🎮 Game mode gestures
             if self.mode == "game":
-                # Thumbs up/down (VERY specific: ONLY thumb extended)
-                if thumb_ext and not index_ext and not middle_ext and not ring_ext and not pinky_ext:
-                    wrist_y = landmarks[mp.solutions.hands.HandLandmark.WRIST].y
-                    thumb_y = landmarks[mp.solutions.hands.HandLandmark.THUMB_TIP].y
-                    # Adjust sensitivity for thumb up/down by comparing to a point on wrist/palm
-                    # A larger difference in Y means more clearly up/down
-                    if (thumb_y - wrist_y) < -0.08: # Thumb significantly above wrist
-                        current_action = "jump"  # Thumbs up
-                    elif (thumb_y - wrist_y) > 0.08: # Thumb significantly below wrist
-                        current_action = "crouch"  # Thumbs down
-                
-                # Peace Sign (specific: Index & Middle extended, others not, NO thumb)
-                elif index_ext and middle_ext and not ring_ext and not pinky_ext and not thumb_ext:
-                    current_action = "stop"  # Peace ✌️
-                
-                # Open Palm (general: all fingers extended, check after specific ones)
-                elif index_ext and middle_ext and ring_ext and pinky_ext and thumb_ext:
-                    current_action = "right"  # Open palm (all extended)
-                
-                # Fist (general: no fingers extended, check last in game mode)
+                if index_ext and middle_ext and not ring_ext and not pinky_ext and not thumb_ext:
+                    current_action = "boost"
+                elif index_ext and not middle_ext and not ring_ext and not pinky_ext and not thumb_ext:
+                    current_action = "jump"
                 elif not index_ext and not middle_ext and not ring_ext and not pinky_ext and not thumb_ext:
-                    current_action = "left"  # Fist (all not extended)
+                    current_action = "left"
+                elif index_ext and middle_ext and ring_ext and pinky_ext and thumb_ext:
+                    current_action = "right"
 
+            # 🧭 Menu mode gestures
             elif self.mode == "menu":
-                # Confirmation Gesture (e.g., Index + Thumb extended, others not)
-                # This could be an "OK" sign if thumb touches index, or L-shape
-                # For simplicity, let's use Index and Thumb extended, others NOT.
                 if index_ext and thumb_ext and not middle_ext and not ring_ext and not pinky_ext:
                     current_action = "confirm_select"
-                
-                # Menu option 2 (3 fingers: Index, Middle, Ring extended, others not)
                 elif index_ext and middle_ext and ring_ext and not pinky_ext and not thumb_ext:
                     current_action = "menu_2"
-                
-                # Menu option 1 (2 fingers: Index, Middle extended, others not)
                 elif index_ext and middle_ext and not ring_ext and not pinky_ext and not thumb_ext:
                     current_action = "menu_1"
-                
-                # Menu option 0 (1 finger: Index extended, OR just thumb extended, others not)
-                # Prioritize single index finger for clarity if possible
                 elif index_ext and not middle_ext and not ring_ext and not pinky_ext and not thumb_ext:
                     current_action = "menu_0"
-                # If index is not extended, but only thumb is, also consider it menu_0
                 elif thumb_ext and not index_ext and not middle_ext and not ring_ext and not pinky_ext:
                     current_action = "menu_0"
 
-        # --- DEBUGGING PRINTS ---
-        # print(f"Current Mode: {self.mode}, Detected Action: {current_action}")
-        # ------------------------
+            # 🔴 Draw fingertips for visual feedback
+            for idx in [4, 8, 12, 16, 20]:
+                cx, cy = int(landmarks[idx].x * self.last_frame.shape[1]), int(landmarks[idx].y * self.last_frame.shape[0])
+                cv2.circle(self.last_frame, (cx, cy), 6, (0, 255, 255), -1)
 
-        self.prev_action = current_action # Store for next frame if no hand is detected
+        # 🧪 On-screen debug text
+        if self.last_frame is not None:
+            cv2.putText(self.last_frame, f"Mode: {self.mode}", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(self.last_frame, f"Action: {current_action}", (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(self.last_frame,
+                        f"I:{int(index_ext)} M:{int(middle_ext)} R:{int(ring_ext)} P:{int(pinky_ext)} T:{int(thumb_ext)}",
+                        (20, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 1)
+
+        # 🖨️ Console debug
+        print(f"[Gesture Debug] Mode: {self.mode} | I:{index_ext} M:{middle_ext} R:{ring_ext} P:{pinky_ext} T:{thumb_ext} => Action: {current_action}")
+
+        self.prev_action = current_action
         return current_action
 
     def release(self):

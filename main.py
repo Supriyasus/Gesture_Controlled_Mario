@@ -1,6 +1,7 @@
 import pygame
 import time
 import cv2
+import traceback
 from classes.Dashboard import Dashboard
 from classes.Level import Level
 from classes.Menu import Menu
@@ -21,14 +22,14 @@ def main():
     menu = Menu(screen, dashboard, level, sound)
 
     pose = PoseControl()
-    pose.mode = "menu" # Set initial mode for pose control
+    pose.mode = "menu"
     clock = pygame.time.Clock()
 
     gesture_timer = None
     last_gesture = None
-    confirm_delay = 1.2  # seconds to hold a gesture for confirmation
+    confirm_delay = 1.2
 
-    # === MENU LOOP WITH HAND GESTURE CONTROL ===
+    # === MENU LOOP WITH GESTURE CONTROL ===
     while not menu.start:
         action = pose.get_action()
 
@@ -36,18 +37,7 @@ def main():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 exit()
-            # Optional: Add keyboard events for debugging or alternative control
-            # if event.type == pygame.KEYDOWN:
-            #     if event.key == pygame.K_1: action = "menu_0"
-            #     elif event.key == pygame.K_2: action = "menu_1"
-            #     elif event.key == pygame.K_3: action = "menu_2"
-            #     elif event.key == pygame.K_RETURN: action = "confirm_select"
-            #     elif event.key == pygame.K_ESCAPE: # For manual exit in debug
-            #         pygame.quit()
-            #         exit()
 
-
-        # === Level Chooser (called after "Play Game" selected in main menu) ===
         if menu.inChoosingLevel:
             if action.startswith("menu_"):
                 index = int(action.split("_")[1])
@@ -56,7 +46,7 @@ def main():
                         menu.currSelectedLevel = index + 1
                         menu.drawLevelChooser()
                         pygame.display.update()
-                        gesture_timer = time.time() # Reset timer if selection changes
+                        gesture_timer = time.time()
                         last_gesture = action
 
             if action == "confirm_select":
@@ -71,7 +61,7 @@ def main():
                     menu.level.loadLevel(menu.levelNames[menu.currSelectedLevel - 1])
                     menu.dashboard.levelName = menu.levelNames[menu.currSelectedLevel - 1].split("Level")[1]
                     menu.start = True
-                    pose.mode = "game" # Switch pose control to game mode
+                    pose.mode = "game"
                     time.sleep(1)
                     gesture_timer = None
                     last_gesture = None
@@ -79,11 +69,9 @@ def main():
                 if last_gesture == "confirm_select":
                     gesture_timer = None
                     last_gesture = None
-        
-        # === Main Menu Selection (Play Game, Settings, Exit) ===
+
         elif action.startswith("menu_"):
             index = int(action.split("_")[1])
-
             if index != last_gesture:
                 last_gesture = index
                 gesture_timer = time.time()
@@ -94,26 +82,25 @@ def main():
                     pygame.display.update()
                     print(f"[INFO] Main Menu Gesture Confirmed: Option {index + 1}")
 
-                    if menu.state == 0: # Play Game
+                    if menu.state == 0:
                         menu.chooseLevel()
-                    elif menu.state == 1: # Settings
+                    elif menu.state == 1:
                         menu.inSettings = True
                         menu.state = 0
-                    elif menu.state == 2: # Exit Game
+                    elif menu.state == 2:
                         pygame.quit()
                         exit()
 
                     time.sleep(1)
                     gesture_timer = None
                     last_gesture = None
-        else: # If no menu_X or confirm_select gesture is currently held
+        else:
             if last_gesture is not None and not (isinstance(last_gesture, int) and action.startswith("menu_")) and action != "confirm_select":
                 gesture_timer = None
                 last_gesture = None
 
         menu.update()
 
-        # === Webcam Overlay ===
         if pose.last_frame is not None:
             frame = cv2.resize(pose.last_frame, (160, 120))
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -123,7 +110,7 @@ def main():
         pygame.display.update()
         clock.tick(max_frame_rate)
 
-    # === Countdown before game starts ===
+    # === Countdown ===
     print("Starting game in...")
     for i in range(3, 0, -1):
         print(i)
@@ -135,29 +122,28 @@ def main():
 
     while not mario.restart:
         pygame.display.set_caption("Super Mario running with {:d} FPS".format(int(clock.get_fps())))
-        action = pose.get_action() # Get action based on hand pose (pose.mode is "game")
+        action = pose.get_action()
 
-        # Reset control states every frame
+        # Reset base movement states
         mario.traits["goTrait"].direction = 0
         mario.traits["goTrait"].brake = True
-        mario.traits["goTrait"].boost = False
-        mario.traits["jumpTrait"].jump = False  # <== THIS IS CRUCIAL
+        mario.traits["goTrait"].boost = (action == "boost")
 
-        # Apply pose-based actions
+        mario.traits["jumpTrait"].handle_jump(action == "jump")
+
+
+        # Apply movement gestures
         if action == "left":
             mario.traits["goTrait"].direction = -1
             mario.traits["goTrait"].brake = False
         elif action == "right":
             mario.traits["goTrait"].direction = 1
             mario.traits["goTrait"].brake = False
-        elif action == "jump":
-            mario.traits["jumpTrait"].jump = True  # Will now persist if gesture is held
-        elif action == "boost":
-            mario.traits["goTrait"].boost = True
+
+        if action == "boost":
             print("Mario Boost Activated!")
 
-
-        # === Game Update Logic ===
+        # Game update logic
         if mario.pause:
             mario.pauseObj.update()
         else:
@@ -165,7 +151,7 @@ def main():
             dashboard.update()
             mario.update()
 
-        # === Webcam Preview Overlay (during game) ===
+        # Webcam overlay
         if pose.last_frame is not None:
             frame = cv2.resize(pose.last_frame, (160, 120))
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

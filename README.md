@@ -41,37 +41,6 @@ python main.py
 - **☝️ Index Finger Only**: Jump
 - **✌️ Index + Middle Fingers**: Boost/Run faster
 
-### Traditional Keyboard Controls (Alternative)
-- **Arrow Keys / H,L**: Move left/right
-- **Space / Up Arrow / K**: Jump
-- **Escape / F5**: Pause game
-- **Left Mouse Click**: Add coin at cursor position
-- **Right Mouse Click**: Add enemies (Goomba, Koopa, Red Mushroom) at cursor
-
-## Standalone Windows Build
-
-```bash
-pip install py2exe
-python compile.py py2exe
-```
-
-## Game Features
-
-### Entities
-- **Mario**: The main player character with small and big forms
-- **Goombas**: Walking enemies that can be stomped
-- **Koopas**: Shell enemies that can be kicked after stomping
-- **Coins**: Collectible items for points
-- **Power-ups**: Red Mushrooms to make Mario bigger
-- **Blocks**: Coin blocks and random item boxes
-
-### Levels
-- **Level 1-1**: Classic first level layout
-- **Level 1-2**: Additional level content
-
-### Audio
-- Background music and sound effects for jumps, coins, power-ups, and enemy interactions
-
 ## Technical Details
 
 - **Computer Vision**: Uses MediaPipe for hand landmark detection

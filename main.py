@@ -1,7 +1,6 @@
 import pygame
 import time
 import cv2
-import traceback
 from classes.Dashboard import Dashboard
 from classes.Level import Level
 from classes.Menu import Menu
@@ -124,15 +123,21 @@ def main():
         pygame.display.set_caption("Super Mario running with {:d} FPS".format(int(clock.get_fps())))
         action = pose.get_action()
 
-        # Reset base movement states
+        # Reset movement states
         mario.traits["goTrait"].direction = 0
         mario.traits["goTrait"].brake = True
-        mario.traits["goTrait"].boost = (action == "boost")
 
+        # === Debug print to confirm gesture and boost state ===
+        print("[DEBUG] Detected action:", action)
+
+        # Set boost flag
+        mario.traits["goTrait"].boost = (action == "boost")
+        print("[DEBUG] Boost flag set to:", mario.traits["goTrait"].boost)
+
+        # Handle jump
         mario.traits["jumpTrait"].handle_jump(action == "jump")
 
-
-        # Apply movement gestures
+        # Apply left/right movement
         if action == "left":
             mario.traits["goTrait"].direction = -1
             mario.traits["goTrait"].brake = False
@@ -140,7 +145,7 @@ def main():
             mario.traits["goTrait"].direction = 1
             mario.traits["goTrait"].brake = False
 
-        if action == "boost":
+        if mario.traits["goTrait"].boost:
             print("Mario Boost Activated!")
 
         # Game update logic

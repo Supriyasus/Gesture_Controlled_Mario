@@ -29,20 +29,21 @@ python main.py
 ## Hand Gesture Controls
 
 ### Menu Navigation
-- **1-5 Fingers**: Select menu options (hold gesture for 1.2 seconds to confirm)
-- **Confirm Selection**: Hold the gesture to confirm your choice
+- **👍 Thumb Only**: Select first menu option
+- **☝️ Index Finger Only**: Select first menu option  
+- **✌️ Index + Middle Fingers**: Select second menu option
+- **🤟 Index + Middle + Ring Fingers**: Select third menu option
+- **👍☝️ Thumb + Index Finger**: Confirm selection
 
 ### In-Game Controls
-- **👊 Fist (Left Hand)**: Move Mario left
-- **🖐️ Open Palm**: Move Mario right  
-- **✌️ Peace Sign (2 Fingers)**: Stop Mario
-- **👍 Thumbs Up**: Jump
-- **👎 Thumbs Down**: Crouch/Duck
+- **✊ Closed Fist (No Fingers)**: Move Mario left
+- **🖐️ All Fingers Extended**: Move Mario right
+- **☝️ Index Finger Only**: Jump
+- **✌️ Index + Middle Fingers**: Boost/Run faster
 
 ### Traditional Keyboard Controls (Alternative)
 - **Arrow Keys / H,L**: Move left/right
 - **Space / Up Arrow / K**: Jump
-- **Left Shift**: Boost/Run faster
 - **Escape / F5**: Pause game
 - **Left Mouse Click**: Add coin at cursor position
 - **Right Mouse Click**: Add enemies (Goomba, Koopa, Red Mushroom) at cursor

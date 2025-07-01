@@ -77,7 +77,7 @@ class PoseControl:
                 elif index_ext and middle_ext and ring_ext and pinky_ext and thumb_ext:
                     current_action = "right"
 
-            # 🧭 Menu mode gestures
+            # Menu mode gestures
             elif self.mode == "menu":
                 if index_ext and thumb_ext and not middle_ext and not ring_ext and not pinky_ext:
                     current_action = "confirm_select"
@@ -90,7 +90,7 @@ class PoseControl:
                 elif thumb_ext and not index_ext and not middle_ext and not ring_ext and not pinky_ext:
                     current_action = "menu_0"
 
-            # 🔴 Visual feedback on fingertips
+            # Visual feedback on fingertips
             fingertip_status = [thumb_ext, index_ext, middle_ext, ring_ext, pinky_ext]
             fingertip_indices = [4, 8, 12, 16, 20]
             for i, idx in enumerate(fingertip_indices):
@@ -99,7 +99,7 @@ class PoseControl:
                 color = (0, 255, 0) if fingertip_status[i] else (0, 0, 255)
                 cv2.circle(self.last_frame, (cx, cy), 6, color, -1)
 
-        # 🧪 On-screen debug
+        # On-screen debug
         if self.last_frame is not None:
             cv2.putText(self.last_frame, f"Mode: {self.mode}", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
             cv2.putText(self.last_frame, f"Action: {current_action}", (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
@@ -107,7 +107,7 @@ class PoseControl:
                         f"I:{int(index_ext)} M:{int(middle_ext)} R:{int(ring_ext)} P:{int(pinky_ext)} T:{int(thumb_ext)}",
                         (20, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 1)
 
-        # 🖨️ Console debug
+        # Console debug
         print(f"[Gesture Debug] Mode: {self.mode} | I:{index_ext} M:{middle_ext} R:{ring_ext} P:{pinky_ext} T:{thumb_ext} => Action: {current_action}")
 
         self.prev_action = current_action

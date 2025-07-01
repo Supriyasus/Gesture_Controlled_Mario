@@ -19,7 +19,6 @@ class PoseControl:
         self.last_frame = None
         self.mode = "menu"
 
-        # 🔧 Tuned for better reliability
         self.extension_threshold_factor = 0.75
         self.thumb_extension_factor_multiplier = 0.9
 
@@ -58,8 +57,8 @@ class PoseControl:
                 tip = landmarks[mp.solutions.hands.HandLandmark.THUMB_TIP]
                 ip = landmarks[mp.solutions.hands.HandLandmark.THUMB_IP]
                 mcp = landmarks[mp.solutions.hands.HandLandmark.THUMB_MCP]
-
-                return tip.x > ip.x > mcp.x if hand_landmarks.landmark[mp.solutions.hands.HandLandmark.WRIST].x < tip.x else tip.x < ip.x < mcp.x
+                wrist_x = landmarks[mp.solutions.hands.HandLandmark.WRIST].x
+                return (tip.x > ip.x > mcp.x) if wrist_x < tip.x else (tip.x < ip.x < mcp.x)
 
             index_ext = is_finger_extended(mp.solutions.hands.HandLandmark.INDEX_FINGER_TIP, mp.solutions.hands.HandLandmark.INDEX_FINGER_MCP)
             middle_ext = is_finger_extended(mp.solutions.hands.HandLandmark.MIDDLE_FINGER_TIP, mp.solutions.hands.HandLandmark.MIDDLE_FINGER_MCP)
@@ -67,11 +66,11 @@ class PoseControl:
             pinky_ext = is_finger_extended(mp.solutions.hands.HandLandmark.PINKY_TIP, mp.solutions.hands.HandLandmark.PINKY_MCP)
             thumb_ext = is_thumb_extended()
 
-            # 🎮 Game mode gestures
+            # 🎮 Game mode gestures (relaxed)
             if self.mode == "game":
-                if index_ext and middle_ext and not ring_ext and not pinky_ext and not thumb_ext:
+                if index_ext and middle_ext and not ring_ext:
                     current_action = "boost"
-                elif index_ext and not middle_ext and not ring_ext and not pinky_ext and not thumb_ext:
+                elif index_ext and not middle_ext:
                     current_action = "jump"
                 elif not index_ext and not middle_ext and not ring_ext and not pinky_ext and not thumb_ext:
                     current_action = "left"
@@ -91,12 +90,16 @@ class PoseControl:
                 elif thumb_ext and not index_ext and not middle_ext and not ring_ext and not pinky_ext:
                     current_action = "menu_0"
 
-            # 🔴 Draw fingertips for visual feedback
-            for idx in [4, 8, 12, 16, 20]:
-                cx, cy = int(landmarks[idx].x * self.last_frame.shape[1]), int(landmarks[idx].y * self.last_frame.shape[0])
-                cv2.circle(self.last_frame, (cx, cy), 6, (0, 255, 255), -1)
+            # 🔴 Visual feedback on fingertips
+            fingertip_status = [thumb_ext, index_ext, middle_ext, ring_ext, pinky_ext]
+            fingertip_indices = [4, 8, 12, 16, 20]
+            for i, idx in enumerate(fingertip_indices):
+                cx = int(landmarks[idx].x * self.last_frame.shape[1])
+                cy = int(landmarks[idx].y * self.last_frame.shape[0])
+                color = (0, 255, 0) if fingertip_status[i] else (0, 0, 255)
+                cv2.circle(self.last_frame, (cx, cy), 6, color, -1)
 
-        # 🧪 On-screen debug text
+        # 🧪 On-screen debug
         if self.last_frame is not None:
             cv2.putText(self.last_frame, f"Mode: {self.mode}", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
             cv2.putText(self.last_frame, f"Action: {current_action}", (20, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
